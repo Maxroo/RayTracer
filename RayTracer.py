@@ -1,4 +1,6 @@
-import sys;
+import Output
+import sys 
+import numpy
 
 class Sphere:
     def __init__(self,name,pos_x,pos_y,pos_z,scl_x,scl_y,scl_z,r,g,b,ka,kd,ks,kr,n):
@@ -44,8 +46,10 @@ class Res:
     def __init__(self,x,y):
         self.x = x
         self.y = y
+        
 
 
+#values 
 near = 0.0
 left = 0.0
 right = 0.0
@@ -89,6 +93,8 @@ def read_file(arg):
                 spheres.append(Sphere(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7]),
                                     float(line[8]),float(line[9]),float(line[10]),float(line[11]),float(line[12]),float(line[13]),float(line[14]),
                                     int(line[15])))
+    f.close()
 
 read_file(sys.argv[1])
 print(near)
+Output.output(output, res.x, res.y)
