@@ -1,3 +1,5 @@
+import numpy as np
+
 class Sphere:
     def __init__(self,name,pos_x,pos_y,pos_z,scl_x,scl_y,scl_z,r,g,b,ka,kd,ks,kr,n):
         self.name = name 
@@ -16,6 +18,9 @@ class Sphere:
         self.kr = kr
         self.n = n
         self.radius = 1 
+    
+    def get_normal(self, point):
+        return np.vstack([point[0] - self.pos_x, point[1] - self.pos_y, point[2] - self.pos_z])
 
 class Light:
     def __init__(self,name,pos_x,pos_y,pos_z,lr,lg,lb):

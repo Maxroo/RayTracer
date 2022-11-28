@@ -50,7 +50,8 @@ def read_file(arg):
                                     float(line[8]),float(line[9]),float(line[10]),float(line[11]),float(line[12]),float(line[13]),float(line[14]),
                                     int(line[15])))
     f.close()
-
+def normalize (x):
+    return x /np.linalg.norm(x)
 read_file(sys.argv[1])
 
 # image = np.zeros([2*right,2*top,res.x,res.y])
@@ -60,8 +61,8 @@ v = np.array([0,1,0])
 n = np.array([0,0,1])
 camera = np.column_stack((eye,u,v,n))
 
-uc = -right + right*2*(225)/res.x
-vr  = -top + top*2*(375)/res.y
+uc = -right + right*2*(300)/res.x
+vr  = -top + top*2*(300)/res.y
 p_world = eye - near*n + uc*u + vr * v
 ray = Ray(np.vstack(eye), np.vstack(p_world - eye))
 # print(p_world)
@@ -85,7 +86,7 @@ def check_pixel():
     return final_color
 
 def ray_trace(ray, t):
-    
+    th = np.inf
     for sphere in spheres:
 
         model_view_matrix = np.array([[sphere.scl_x,0,0,sphere.pos_x],
@@ -93,9 +94,6 @@ def ray_trace(ray, t):
                                         [0,0,sphere.scl_z,sphere.pos_z],
                                         [0,0,0,1]])
         model_inverse_matrix = np.linalg.inv(model_view_matrix)
-        # print(sphere.b)
-        # if(sphere.b == 0.5):
-        #     print(model_view_matrix)
         #matrix multiplication to find inverse transformed ray
         sp = ray.start_point
         sd = ray.dir
@@ -109,15 +107,29 @@ def ray_trace(ray, t):
         a = np.square(np.sqrt(np.squeeze(ivr.dir).dot(np.squeeze(ivr.dir))))
         b = np.dot(np.squeeze(ivr.start_point),np.squeeze((ivr.dir)))
         c = np.square(np.sqrt(np.squeeze(ivr.start_point).dot(np.squeeze(ivr.start_point)))) - sphere.radius*sphere.radius
+        #check if interset 
         
-        # print(b)
         if (np.square(b) - a * c) > 0:
-            # print(np.square(b) - a * c)
-            # print(sphere.r)
-            color = Color(sphere.r,sphere.g,sphere.b)
-            return color
-    return back_color
-        
-# ray_trace(ray, 1)
+            #check closest intersetion 
+            th1 = -b/a + np.sqrt(np.square(b) - a * c)/a
+            th2 = -b/a - np.sqrt(np.square(b) - a * c)/a
+            th = th1
+            if th2 < th1:
+                th = th2
+
+    print(th)
+    if th == np.inf:
+        # print("hit")
+        return back_color
+    p = ray.start_point + ray.dir * th
+    color = Color(sphere.r,sphere.g,sphere.b)
+    # print(p[0])
+    normal = sphere.get_normal(p)
+    c = [color.r, color.g, color.b]
+    po = normalize(origin - p)
+    return color
+    
+    
+ray_trace(ray, 1)
 # check_pixel()
-Output.output(output, res.x, res.y,check_pixel())
+# Output.output(output, res.x, res.y,check_pixel())
