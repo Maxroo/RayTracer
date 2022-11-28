@@ -1,53 +1,8 @@
 import Output
 import sys 
-import numpy
+import numpy as np
 
-class Sphere:
-    def __init__(self,name,pos_x,pos_y,pos_z,scl_x,scl_y,scl_z,r,g,b,ka,kd,ks,kr,n):
-        self.name = name 
-        self.pos_x = pos_x
-        self.pos_y = pos_y
-        self.pos_z = pos_z
-        self.scl_x = scl_x
-        self.scl_y = scl_y
-        self.scl_z = scl_z 
-        self.r = r
-        self.g = g
-        self.b = b
-        self.ka = ka
-        self.kd = kd
-        self.ks = ks
-        self.kr = kr
-        self.n = n
-
-class Light:
-    def __init__(self,name,pos_x,pos_y,pos_z,lr,lg,lb):
-        self.name = name 
-        self.pos_x = pos_x
-        self.pos_y = pos_y
-        self.pos_z = pos_z
-        self.lr = lr
-        self.lg = lg
-        self.lb = lb 
-        
-class Ambient:
-    def __init__(self,lr,lg,lb):
-        self.lr = lr
-        self.lg = lg
-        self.lb = lb 
-        
-class Back_color:
-    def __init__(self,r,g,b):
-        self.r = r
-        self.g = g
-        self.b = b 
-        
-class Res:
-    def __init__(self,x,y):
-        self.x = x
-        self.y = y
-        
-
+from Classes import *
 
 #values 
 near = 0.0
@@ -58,10 +13,11 @@ top = 0.0
 res = Res(0,0)
 spheres = []
 lights = []
-back_color = Back_color(0,0,0)
+back_color = Color(0,0,0)
 ambient = Ambient(0,0,0)
 output = ''
-
+up = np.array([0,1,0,1])
+final_color = []
 #read value and phrasing them into the value
 def read_file(arg):
     global near,left,right,bottom,top,res,spheres,lights,back_color,ambient,output
@@ -84,7 +40,7 @@ def read_file(arg):
             elif(line[0] == 'AMBIENT'):
                 ambient = Ambient(float(line[1]) , float(line[2]) , float(line[3]))
             elif(line[0] == 'BACK'):
-                back_color = Back_color(float(line[1]) , float(line[2]) , float(line[3]))
+                back_color = Color(float(line[1]) , float(line[2]) , float(line[3]))
             elif(line[0] == 'RES'):
                 res = Res(int(line[1]) , int(line[2]))
             elif(line[0] == 'LIGHT'):
@@ -96,5 +52,72 @@ def read_file(arg):
     f.close()
 
 read_file(sys.argv[1])
-print(near)
-Output.output(output, res.x, res.y)
+
+# image = np.zeros([2*right,2*top,res.x,res.y])
+eye = np.array([0,0,0])
+u = np.array([1,0,0])
+v = np.array([0,1,0])
+n = np.array([0,0,1])
+camera = np.column_stack((eye,u,v,n))
+
+uc = -right + right*2*(225)/res.x
+vr  = -top + top*2*(375)/res.y
+p_world = eye - near*n + uc*u + vr * v
+ray = Ray(np.vstack(eye), np.vstack(p_world - eye))
+# print(p_world)
+# print(ray.dir)
+# print(uc)
+
+
+def check_pixel():
+    
+    for h in range(res.y-1,-1,-1):
+        width_color = []
+        for w in range(res.x):
+            uc = -right + right*2*(w)/res.x
+            vr  = -top + top*2*(h)/res.y
+            p_world = eye - near*n + uc*u + vr * v
+            ray = Ray(eye, p_world - eye)
+            color = ray_trace(ray, 1)
+            width_color.append(color)
+        final_color.append(width_color)
+    print("done")
+    return final_color
+
+def ray_trace(ray, t):
+    
+    for sphere in spheres:
+
+        model_view_matrix = np.array([[sphere.scl_x,0,0,sphere.pos_x],
+                                        [0,sphere.scl_y,0,sphere.pos_y],
+                                        [0,0,sphere.scl_z,sphere.pos_z],
+                                        [0,0,0,1]])
+        model_inverse_matrix = np.linalg.inv(model_view_matrix)
+        # print(sphere.b)
+        # if(sphere.b == 0.5):
+        #     print(model_view_matrix)
+        #matrix multiplication to find inverse transformed ray
+        sp = ray.start_point
+        sd = ray.dir
+        #calculate inverse transformed ray with Homogeneous coord 
+        ivr = Ray(model_inverse_matrix@np.vstack([sp[0],sp[1],sp[2],1]), model_inverse_matrix@np.vstack([sd[0],sd[1],sd[2],0]))
+        #drop inverse transformed ray Homogeneous coord
+        ivr = Ray(np.vstack([ivr.start_point[0],ivr.start_point[1],ivr.start_point[2]]), 
+                  np.vstack([ivr.dir[0],ivr.dir[1],ivr.dir[2]])) 
+        #find quadratic equation 
+        
+        a = np.square(np.sqrt(np.squeeze(ivr.dir).dot(np.squeeze(ivr.dir))))
+        b = np.dot(np.squeeze(ivr.start_point),np.squeeze((ivr.dir)))
+        c = np.square(np.sqrt(np.squeeze(ivr.start_point).dot(np.squeeze(ivr.start_point)))) - sphere.radius*sphere.radius
+        
+        # print(b)
+        if (np.square(b) - a * c) > 0:
+            # print(np.square(b) - a * c)
+            # print(sphere.r)
+            color = Color(sphere.r,sphere.g,sphere.b)
+            return color
+    return back_color
+        
+# ray_trace(ray, 1)
+# check_pixel()
+Output.output(output, res.x, res.y,check_pixel())
