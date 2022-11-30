@@ -11,7 +11,7 @@ def output(name,width,height,output):
     for h in range(height):
         for w in range(width):
             color = output[h][w]
-            pixel += "   " + str(color.r * 255) + " " + str(color.g * 255) + " " + str(color.b * 255)
+            pixel += "   " + str(color[0] * 255) + " " + str(color[1] * 255) + " " + str(color[2] * 255)
             
         f.write(pixel + "\n")
         pixel = ""

@@ -4,6 +4,7 @@ import numpy as np
 
 from Classes import *
 
+
 #values 
 near = 0.0
 left = 0.0
@@ -16,7 +17,6 @@ lights = []
 back_color = Color(0,0,0)
 ambient = Color(0,0,0)
 output = ''
-up = np.array([0,1,0,1])
 final_color = []
 #read value and phrasing them into the value
 def read_file(arg):
@@ -38,17 +38,37 @@ def read_file(arg):
             elif(line[0] == 'NEAR'):
                 near = float(line[1]) 
             elif(line[0] == 'AMBIENT'):
-                ambient = Color(float(line[1]) , float(line[2]) , float(line[3]))
+                ambient = np.array([float(line[1]) , float(line[2]) , float(line[3])])
+                # ambient = Color(float(line[1]) , float(line[2]) , float(line[3]))
             elif(line[0] == 'BACK'):
-                back_color = Color(float(line[1]) , float(line[2]) , float(line[3]))
+                back_color = np.array([float(line[1]) , float(line[2]) , float(line[3])])
+                # back_color = Color(float(line[1]) , float(line[2]) , float(line[3]))
             elif(line[0] == 'RES'):
-                res = Res(int(line[1]) , int(line[2]))
+                res = [int(line[1]), int(line[2])]
             elif(line[0] == 'LIGHT'):
-                lights.append(Light(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7])))
+                light = {
+                "name" : line[1] ,"pos_x" : float(line[2]),"pos_y" : float(line[3]), "pos_z" : float(line[4]),
+                "lr" : float(line[5]),"lg" : float(line[6]),"lb" : float(line[7])
+                }
+                lights.append(light)
+                # lights.append(Light(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7])))
             elif(line[0] == 'SPHERE'):
-                spheres.append(Sphere(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7]),
-                                    float(line[8]),float(line[9]),float(line[10]),float(line[11]),float(line[12]),float(line[13]),float(line[14]),
-                                    int(line[15])))
+                sphere = {
+                "name" : line[1],"pos_x" : float(line[2]),"pos_y" : float(line[3]),"pos_z" : float(line[4]),
+                "scl_x" : float(line[5]),"scl_y" : float(line[6]),"scl_z" : float(line[7]) ,
+                "r" : float(line[8]),"g" : float(line[9]),"b" : float(line[10]),
+                "ka" : float(line[11]),"kd" : float(line[12]),"ks" : float(line[13]),"kr" : float(line[2]),"n" : int(line[15]),"radius" : 1 
+                }
+                model_view_matrix = np.array([[sphere.get("scl_x"),0,0,sphere.get("pos_x")],
+                                            [0,sphere.get("scl_y"),0,sphere.get("pos_y")],
+                                            [0,0,sphere.get("scl_z"),sphere.get("pos_z")],
+                                            [0,0,0,1]])
+                sphere.update({"model_view_matrix" : model_view_matrix})
+                sphere.update({"model_inverse_matrix": np.linalg.inv(sphere.get("model_view_matrix"))})
+                spheres.append(sphere)
+                # spheres.append(Sphere(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7]),
+                #                     float(line[8]),float(line[9]),float(line[10]),float(line[11]),float(line[12]),float(line[13]),float(line[14]),
+                #                     int(line[15])))
     f.close()
 
 read_file(sys.argv[1])
@@ -64,17 +84,17 @@ v = np.array([0,1,0])
 n = np.array([0,0,1])
 camera = np.column_stack((eye,u,v,n))
 
-uc = -right + right*2*(300)/res.x
-vr  = -top + top*2*(300)/res.y
+uc = -right + right*2*(300)/res[0]
+vr  = -top + top*2*(300)/res[1]
 p_world = eye - near*n + uc*u + vr * v
 ray = Ray(np.vstack(eye), np.vstack(p_world - eye))
 
 def check_pixel():
-    for h in range(res.y-1,-1,-1):
+    for h in range(res[1]-1,-1,-1):
         width_color = []
-        for w in range(res.x):
-            uc = -right + right*2*(w)/res.x
-            vr  = -top + top*2*(h)/res.y
+        for w in range(res[0]):
+            uc = -right + right*2*(w)/res[0]
+            vr  = -top + top*2*(h)/res[1]
             p_world = eye - near*n + uc*u + vr * v
             # print(h, end = " ")
             # print(w)
@@ -93,10 +113,8 @@ def check_sphere_intersect(ray, current_sphere):
         sd = ray.dir
         #calculate inverse transformed ray with Homogeneous coord 
         #@ for np multiplication operator 
-        # print(np.vstack([sd[0],sd[1],sd[2],0]))
-        # print(sd)
-        ivr = Ray(current_sphere.model_inverse_matrix@np.vstack([sp[0],sp[1],sp[2],1]), 
-                current_sphere.model_inverse_matrix@np.vstack([sd[0],sd[1],sd[2],0]))
+        ivr = Ray(current_sphere.get("model_inverse_matrix")@np.vstack([sp[0],sp[1],sp[2],1]), 
+                current_sphere.get("model_inverse_matrix")@np.vstack([sd[0],sd[1],sd[2],0]))
         # print(current_sphere.model_inverse_matrix, end="  ")
         #drop inverse transformed ray Homogeneous coord
         ivr = Ray(np.vstack([ivr.start_point[0],ivr.start_point[1],ivr.start_point[2]]), 
@@ -104,7 +122,7 @@ def check_sphere_intersect(ray, current_sphere):
         #find quadratic equation 
         a = np.square(np.sqrt(np.squeeze(ivr.dir).dot(np.squeeze(ivr.dir))))
         b = np.dot(np.squeeze(ivr.start_point),np.squeeze((ivr.dir)))
-        c = np.square(np.sqrt(np.squeeze(ivr.start_point).dot(np.squeeze(ivr.start_point)))) - current_sphere.radius*current_sphere.radius
+        c = np.square(np.sqrt(np.squeeze(ivr.start_point).dot(np.squeeze(ivr.start_point)))) - 1
         #check if interset 
         if (np.square(b) - a * c) > 0:
             #check closest intersetion 
@@ -117,9 +135,6 @@ def check_sphere_intersect(ray, current_sphere):
 
 def ray_trace(ray):
     th = np.inf
-    r = back_color.r
-    g = back_color.g
-    b = back_color.b
     interset_sphere = 0
     for sphere in spheres:
         temp_th = check_sphere_intersect(ray, sphere)
@@ -131,27 +146,28 @@ def ray_trace(ray):
         return back_color
     p = ray.start_point + ray.dir * th
     # print(p[0])
-    sphere_color = Color(interset_sphere.r,interset_sphere.g,interset_sphere.b)
-    
-    normal = sphere.get_normal(interset_sphere.model_inverse_matrix,p)
-    # print(normalize(p))
-    
-    color = sphere_color * ambient * interset_sphere.ka
-    # po = normalize(origin - p)
+    sphere_color = np.array([interset_sphere.get("r"),interset_sphere.get("g"),interset_sphere.get("b")])
+    homo_p = np.vstack([p[0],p[1],p[2],0])
+    homo_p = normalize(homo_p)
+    # print(homo_p)
+    model_view_matrix = np.array([[interset_sphere.get("scl_x"),0,0,0],
+                                [0,interset_sphere.get("scl_y"),0,0],
+                                [0,0,interset_sphere.get("scl_z"),0],
+                                [0,0,0,1]])
+    model_inverse_matrix = np.linalg.inv(model_view_matrix)
+    normal = np.transpose(model_inverse_matrix)@homo_p
+    color = sphere_color * ambient * interset_sphere.get("ka")
     normal = np.vstack([normal[0],normal[1],normal[2]])
-    v = normalize(np.vstack(eye) - np.vstack(p))
-    # print(normal)
+    # normal = normalize(normal)
+    N = normalize(p)
+    V = normalize(np.vstack(eye) - np.vstack(p))
+    # print((normal))
+    # print(color)
     for light in lights:
-        light_color = Color(light.lr,light.lg,light.lb)
-        light_pos = np.array([light.pos_x,light.pos_y,light.pos_z])
-        # print(light_pos)
-        # print(p)
-        # print(p[1])
-        # print(p)
-        # print(light_pos)
-        p_dir = normalize(np.vstack(light_pos) - np.vstack(p) )
-        # print(p_dir)
-        light_ray = Ray(p, p_dir)
+        light_color = np.array([light.get("lr"),light.get("lg"),light.get("lb")])
+        light_pos = np.array([light.get("pos_x"),light.get("pos_y"),light.get("pos_z")])
+        L = normalize(np.vstack(light_pos) - np.vstack(p) )
+        light_ray = Ray(p, L)
         ray_th = np.inf
         for sphere in spheres:
             if(sphere != interset_sphere):
@@ -159,25 +175,23 @@ def ray_trace(ray):
                 if(temp_th < ray_th):
                     ray_th = temp_th
         if(ray_th == np.inf):
-            # print(np.squeeze(normal))
-            ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(p_dir))))
-            diffuse_color = light_color * sphere_color * ndotL * interset_sphere.kd
-            r = 2*ndotL*normal  - np.vstack(p_dir)
-            # print(interset_sphere.ks)
-            # print(r)
-            specular_color = light_color * sphere_color * np.power(np.dot(np.squeeze(r), np.squeeze(v)), sphere.n) * interset_sphere.ks
-            # print(np.power(np.dot(np.squeeze(r), np.squeeze(v)), sphere.n))
-            # print(sphere.n)
-            color += diffuse_color + specular_color
-            # print(diffuse_color.r)
-            # print(np.power(np.dot(np.squeeze(r), np.squeeze(v)), sphere.n))
-    # print(color.r)
-    # print(color.g)
-    # print(color.b)
-            # print("add point light color")    
-    # print(color.g)
+            ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(L))))
+            # print(ndotL)
+            diffuse_color = light_color * sphere_color * ndotL * interset_sphere.get("kd")
+            # diffuse_color = interset_sphere['kd'] * max(np.dot(np.squeeze(N), np.squeeze(L)), 0) * color * light_color
+            # print(light_color*sphere_color)
+            # print(light_color*sphere_color* ndotL)
+            R = 2*ndotL*normal - L
+            color += diffuse_color
+            specular_color = light_color *(np.power(np.dot(np.squeeze(R), np.squeeze(V)), interset_sphere.get("n"))) * interset_sphere.get("ks")
+            # specular_color = interset_sphere['ks'] * max(np.dot(np.squeeze(N), np.squeeze(normalize(L + V))), 0) ** interset_sphere['n'] * light_color
+            # print(specular_color)
+            # color += specular_color
+
+    color = np.clip(color,0,1)
+    # print(color)
     return color
     
-# ray_trace(ray)
+ray_trace(ray)
 # check_pixel()
-Output.output(output, res.x, res.y,check_pixel())
+# Output.output(output, res[0], res[1],check_pixel()) 
