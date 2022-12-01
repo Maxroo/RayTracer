@@ -59,12 +59,12 @@ def read_file(arg):
                 "r" : float(line[8]),"g" : float(line[9]),"b" : float(line[10]),
                 "ka" : float(line[11]),"kd" : float(line[12]),"ks" : float(line[13]),"kr" : float(line[2]),"n" : int(line[15]),"radius" : 1 
                 }
-                model_view_matrix = np.array([[sphere.get("scl_x"),0,0,sphere.get("pos_x")],
+                model_matrix = np.array([[sphere.get("scl_x"),0,0,sphere.get("pos_x")],
                                             [0,sphere.get("scl_y"),0,sphere.get("pos_y")],
                                             [0,0,sphere.get("scl_z"),sphere.get("pos_z")],
                                             [0,0,0,1]])
-                sphere.update({"model_view_matrix" : model_view_matrix})
-                sphere.update({"model_inverse_matrix": np.linalg.inv(sphere.get("model_view_matrix"))})
+                sphere.update({"model_matrix" : model_matrix})
+                sphere.update({"model_inverse_matrix": np.linalg.inv(sphere.get("model_matrix"))})
                 spheres.append(sphere)
                 # spheres.append(Sphere(line[1], float(line[2]), float(line[3]), float(line[4]),float(line[5]), float(line[6]), float(line[7]),
                 #                     float(line[8]),float(line[9]),float(line[10]),float(line[11]),float(line[12]),float(line[13]),float(line[14]),
@@ -111,6 +111,7 @@ def check_sphere_intersect(ray, current_sphere):
         #matrix multiplication to find inverse transformed ray
         sp = ray.start_point
         sd = ray.dir
+        p = 0
         #calculate inverse transformed ray with Homogeneous coord 
         #@ for np multiplication operator 
         ivr = Ray(current_sphere.get("model_inverse_matrix")@np.vstack([sp[0],sp[1],sp[2],1]), 
@@ -131,16 +132,19 @@ def check_sphere_intersect(ray, current_sphere):
             temp_th = th1
             if th2 < th1:
                 temp_th = th2
-        return temp_th
+            p = ivr.start_point + ivr.dir * temp_th
+        return temp_th, p
 
 def ray_trace(ray):
     th = np.inf
     interset_sphere = 0
+    p_sphere_space = 0
     for sphere in spheres:
-        temp_th = check_sphere_intersect(ray, sphere)
+        temp_th, temp_p = check_sphere_intersect(ray, sphere)
         if temp_th < th and temp_th > 1:
             th = temp_th
             interset_sphere = sphere    
+            p_sphere_space = temp_p
     # print(th)
     if th == np.inf:
         return back_color
@@ -148,19 +152,40 @@ def ray_trace(ray):
     # print(p[0])
     sphere_color = np.array([interset_sphere.get("r"),interset_sphere.get("g"),interset_sphere.get("b")])
     homo_p = np.vstack([p[0],p[1],p[2],0])
-    homo_p = normalize(homo_p)
+    # homo_p = normalize(homo_p)
     # print(homo_p)
-    model_view_matrix = np.array([[interset_sphere.get("scl_x"),0,0,0],
+    scalar_matrix = np.array([[interset_sphere.get("scl_x"),0,0,0],
                                 [0,interset_sphere.get("scl_y"),0,0],
                                 [0,0,interset_sphere.get("scl_z"),0],
                                 [0,0,0,1]])
-    model_inverse_matrix = np.linalg.inv(model_view_matrix)
-    normal = np.transpose(model_inverse_matrix)@homo_p
+    Translation_matrix = np.array([[1,0,0,interset_sphere.get("pos_x")],
+                                    [0,1,0,interset_sphere.get("pos_y")],
+                                    [0,0,1,interset_sphere.get("pos_z")],
+                                    [0,0,0,1]])
+    s = scalar_matrix@Translation_matrix
+    t = Translation_matrix@scalar_matrix
+    st = np.transpose(np.linalg.inv(s))
+    tt = np.transpose(np.linalg.inv(t))
+    homo_p_sphere_space = np.vstack([p_sphere_space[0],p_sphere_space[1],p_sphere_space[2],0])
+    # print(interset_sphere.get("model_inverse_matrix"))
+    # print()
+    # print(np.transpose(interset_sphere.get("model_inverse_matrix")))
+    # print(Translation_matrix)
+    # print(s)
+    # print()
+    # print(t)
+    # print()
+    # print(np.transpose(np.linalg.inv(s)))
+    # print()
+    # print(np.transpose(np.linalg.inv(t)))
+    # print(homo_p_sphere_space)
+    # model_inverse_matrix = np.linalg.inv(scalar_matrix)
+    normal = np.transpose(interset_sphere.get("model_inverse_matrix"))@homo_p_sphere_space
     color = sphere_color * ambient * interset_sphere.get("ka")
-    normal = np.vstack([normal[0],normal[1],normal[2]])
-    # normal = normalize(normal)
     N = normalize(p)
     V = normalize(np.vstack(eye) - np.vstack(p))
+    normal = np.vstack([normal[0],normal[1],normal[2]])
+    normal = normalize(normal)
     # print((normal))
     # print(color)
     for light in lights:
@@ -169,29 +194,27 @@ def ray_trace(ray):
         L = normalize(np.vstack(light_pos) - np.vstack(p) )
         light_ray = Ray(p, L)
         ray_th = np.inf
+        p_light_space = 0
         for sphere in spheres:
             if(sphere != interset_sphere):
-                temp_th = check_sphere_intersect(light_ray,sphere)
+                temp_th,temp_p = check_sphere_intersect(light_ray,sphere)
                 if(temp_th < ray_th):
                     ray_th = temp_th
+                    p_light_space = temp_p
         if(ray_th == np.inf):
             ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(L))))
-            # print(ndotL)
             diffuse_color = light_color * sphere_color * ndotL * interset_sphere.get("kd")
-            # diffuse_color = interset_sphere['kd'] * max(np.dot(np.squeeze(N), np.squeeze(L)), 0) * color * light_color
-            # print(light_color*sphere_color)
-            # print(light_color*sphere_color* ndotL)
+            # print(diffuse_color)
             R = 2*ndotL*normal - L
             color += diffuse_color
             specular_color = light_color *(np.power(np.dot(np.squeeze(R), np.squeeze(V)), interset_sphere.get("n"))) * interset_sphere.get("ks")
-            # specular_color = interset_sphere['ks'] * max(np.dot(np.squeeze(N), np.squeeze(normalize(L + V))), 0) ** interset_sphere['n'] * light_color
             # print(specular_color)
-            # color += specular_color
+            color += specular_color
 
     color = np.clip(color,0,1)
     # print(color)
     return color
     
-ray_trace(ray)
+# ray_trace(ray)
 # check_pixel()
-# Output.output(output, res[0], res[1],check_pixel()) 
+Output.output(output, res[0], res[1],check_pixel()) 
