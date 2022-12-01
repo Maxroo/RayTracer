@@ -16,3 +16,4 @@ def output(name,width,height,output):
         f.write(pixel + "\n")
         pixel = ""
     f.close()
+    
