@@ -23,8 +23,10 @@ Content:
 5. The background colour ***
 6. The scene’s ambient intensity***
 7. The output file name (you should limit this to 20 characters with no spaces)
-* int         ** float          *** float between 0 and 1
 
+* (*)int  
+* (**)float  
+* (***)float between 0 and 1
 
 ## output 
 To view ppm file you can:
