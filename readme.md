@@ -15,14 +15,14 @@ You will need to call (use 1 if there are more python function in the system):
 2. python lp_solver.py  file_name.txt
 
 ## input file format 
-Content
-The near plane**, left**, right**, top**, and bottom**
-The resolution of the image nColumns* X nRows*
-The position** and scaling** (non-uniform), color***, Ka***, Kd***, Ks***, Kr*** and the specular exponent n* of a sphere
-The position** and intensity*** of a point light source
-The background colour ***
-The scene’s ambient intensity***
-The output file name (you should limit this to 20 characters with no spaces)
+Content: 
+1. The near plane**, left**, right**, top**, and bottom**
+2. The resolution of the image nColumns* X nRows*
+3. The position** and scaling** (non-uniform), color***, Ka***, Kd***, Ks***, Kr*** and the specular exponent n* of a sphere
+4. The position** and intensity*** of a point light source
+5. The background colour ***
+6. The scene’s ambient intensity***
+7. The output file name (you should limit this to 20 characters with no spaces)
 * int         ** float          *** float between 0 and 1
 
 
