@@ -73,9 +73,12 @@ def read_file(arg):
 
 read_file(sys.argv[1])
 
+def magnitude(x):
+    return np.sqrt(np.squeeze(x).dot(np.squeeze(x)))
 
 def normalize (x):
-    return x /np.sqrt(np.squeeze(x).dot(np.squeeze(x)))
+    return x / magnitude(x)
+
 
 # image = np.zeros([2*right,2*top,res.x,res.y])
 eye = np.array([0,0,0])
@@ -95,8 +98,6 @@ def check_pixel():
             p_world = eye - near*n + uc*u + vr * v
             ray = Ray(eye, p_world - eye)
             color = ray_trace(ray)
-            if(w == 400 and h == 400):
-                color = [0,0,0]
             width_color.append(color)
         final_color.append(width_color)
         
@@ -104,9 +105,6 @@ def check_pixel():
     return final_color
 
 def check_sphere_intersect(ray, current_sphere):
-        if ray.depth > 3:
-            return np.array([0, 0, 0])
-        
         temp_th = np.inf
         #matrix multiplication to find inverse transformed ray
         sp = ray.start_point
@@ -130,7 +128,7 @@ def check_sphere_intersect(ray, current_sphere):
             th1 = -b/a + np.sqrt(np.square(b) - a * c)/a
             th2 = -b/a - np.sqrt(np.square(b) - a * c)/a 
             temp_th = th1
-            if th2 < th1:
+            if th2 < th1 or th1 < 0:
                 temp_th = th2
             p = ivr.start_point + ivr.dir * temp_th
         elif(np.square(b) - a * c == 0):
@@ -143,6 +141,8 @@ def ray_trace(ray):
     th = np.inf
     interset_sphere = 0
     p_sphere_space = 0
+    if ray.depth > 3:
+        return np.array([0, 0, 0])
     for sphere in spheres:
         temp_th, temp_p = check_sphere_intersect(ray, sphere)
         # print(temp_th)
@@ -150,7 +150,10 @@ def ray_trace(ray):
             th = temp_th
             interset_sphere = sphere    
             p_sphere_space = temp_p    
+        # print(th)
     # print(th)
+    if ray.depth > 1 and th == np.inf:
+        return np.array([0, 0, 0])
     if th == np.inf:
         # print("not hit")
         return back_color
@@ -160,12 +163,11 @@ def ray_trace(ray):
     homo_p_sphere_space = np.vstack([p_sphere_space[0],p_sphere_space[1],p_sphere_space[2],0])
     normal = np.transpose(interset_sphere.get("model_inverse_matrix"))@homo_p_sphere_space
     color = sphere_color * ambient * interset_sphere.get("ka")
+
     N = normalize(p)
     V = normalize(np.vstack(ray.start_point) - np.vstack(p))
-    # print((normal))
     normal = np.vstack([normal[0],normal[1],normal[2]])
     normal = normalize(normal)
-    # print(color)
     for light in lights:
         light_color = np.array([light.get("lr"),light.get("lg"),light.get("lb")])
         light_pos = np.array([light.get("pos_x"),light.get("pos_y"),light.get("pos_z")])
@@ -178,18 +180,16 @@ def ray_trace(ray):
         for sphere in spheres:
             # print("current sphere : " + interset_sphere.get("name"), end="")
             temp_th,temp_p = check_sphere_intersect(light_ray,sphere)
-            # print(" "+ str(temp_th) + " with sphere "+ sphere.get("name") + " on light" + light.get("name"), end="")  
+            # print(" "+ str(temp_th) + " with sphere "+ sphere.get("name") + " on light" + light.get("name"))  
                 
             if(temp_th < ray_th and temp_th >= 0):
                 # print(" :intersect")
                 ray_th = temp_th
                 p_light_space = temp_p
                 break
-            # else:
-                # print(" :not intersect")
-        # if(light.get("name") == "l3"):
-        # print(temp_th)            
-        if(ray_th == np.inf):
+        
+        # print(ray_th)
+        if(ray_th == np.inf) or (ray_th < magnitude(np.vstack(light_pos) - np.vstack(p)) and ray_th!= 0):
             ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(L))))
             diffuse_color = light_color * sphere_color * ndotL * interset_sphere.get("kd")
             # print(diffuse_color)
@@ -205,11 +205,10 @@ def ray_trace(ray):
     ndotc = np.dot(np.squeeze(np.vstack(normal)),np.squeeze((np.vstack(ray.dir))))
     v = -2* ndotc * np.vstack(normal) + np.vstack(ray.dir)
     reflect_ray = Ray(np.vstack(p),np.vstack(v))
-    reflect_ray.set_depth(reflect_ray.depth + 1)
-    color += ray_trace(reflect_ray) * interset_sphere.get("kr")
-    print(ray_trace(reflect_ray) * interset_sphere.get("kr"))
+    reflect_ray.set_depth(ray.depth + 1)
+    color += (ray_trace(reflect_ray) * interset_sphere.get("kr"))
     color = np.clip(color,0,1)
-    print(color)
+    # print(color)
     return color
 
 def debug_check_pixel(w,h):
@@ -219,8 +218,8 @@ def debug_check_pixel(w,h):
     ray = Ray(np.vstack(eye), np.vstack(p_world - eye))
     ray_trace(ray)
     
-debug_check_pixel(300, 250)
+# debug_check_pixel(300, 250)
 # check_pixel()
 
-# Output.output(output, res[0], res[1],check_pixel()) 
+Output.output(output, res[0], res[1],check_pixel()) 
 
