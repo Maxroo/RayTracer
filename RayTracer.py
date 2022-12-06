@@ -151,34 +151,30 @@ def check_sphere_intersect(ray, current_sphere):
         #fix floating point error 
         if(temp_th > -5e-08 and temp_th < 5*10**-4):
             temp_th = 0
-        return temp_th,th1,th2, p
+        return temp_th, p
 
 #Ray Tracer
 def ray_trace(ray):
     th = np.inf
     interset_sphere = 0
     p_sphere_space = 0
-    th1 = 0
-    th2 = 0
      # if this is reflection ray and it bounced more than 3 times return black
     if ray.depth > 3:
         return np.array([0, 0, 0])
     # for each sphere, check if it intersect, get distance and interesection point in transform coord
     for sphere in spheres:
-        temp_th, th1,th2,temp_p = check_sphere_intersect(ray, sphere)
+        temp_th,temp_p = check_sphere_intersect(ray, sphere)
         # check if it return the distance of intersection 
         if temp_th < th and temp_th >= 0.4:
             th = temp_th - 0.000001
             interset_sphere = sphere    
             p_sphere_space = temp_p  
-    if(temp_th < 1 and (th1 or th2 > 1)):
-        temp_th = 1  
+
     # if this is reflection ray and it hit nothing return black
     if ray.depth > 1 and th == np.inf:
         return np.array([0, 0, 0]) 
     #if not intersect return back color
     if th == np.inf:
-        # print("not hit")
         return back_color
     #calculate the interesction point in world coord
     p = ray.start_point + ray.dir * th
@@ -205,7 +201,7 @@ def ray_trace(ray):
         p_light_space = 0
         for sphere in spheres:
             # print("current sphere : " + interset_sphere.get("name"), end="   ")
-            temp_th,th1,th2,temp_p = check_sphere_intersect(light_ray,sphere)
+            temp_th,temp_p = check_sphere_intersect(light_ray,sphere)
             # print(" "+ str(temp_th) + " with sphere "+ sphere.get("name") + " on light" + light.get("name"))  
             if(temp_th < ray_th and temp_th >= 0):
                 ray_th = temp_th
@@ -213,22 +209,24 @@ def ray_trace(ray):
                 
         # add shadow ray to the sphere 
         # get diffuse color and specular color add to the color
-        if(ray_th == np.inf) or (ray_th > magnitude(np.vstack(light_pos) - np.vstack(p)) and ray_th!= 0):
-            ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(L))))
-            diffuse_color = light_color * sphere_color * ndotL * interset_sphere.get("kd")
-            # print(diffuse_color)
-            R = 2*ndotL*normal - L
-            color += diffuse_color
-            specular_color = light_color *(np.power(np.dot(np.squeeze(R), np.squeeze(V)), interset_sphere.get("n"))) * interset_sphere.get("ks")
-            # print(specular_color)
-            color += specular_color
+        if(interset_sphere.get("ks") != 0 or interset_sphere.get("kd") != 0):
+            if(ray_th == np.inf) or (ray_th > magnitude(np.vstack(light_pos) - np.vstack(p)) and ray_th!= 0):
+                ndotL = np.dot(np.squeeze(normal),np.squeeze((np.vstack(L))))
+                diffuse_color = light_color * sphere_color * ndotL * interset_sphere.get("kd")
+                # print(diffuse_color)
+                R = 2*ndotL*normal - L
+                color += diffuse_color
+                specular_color = light_color *(np.power(np.dot(np.squeeze(R), np.squeeze(V)), interset_sphere.get("n"))) * interset_sphere.get("ks")
+                # print(specular_color)
+                color += specular_color
 
     #reflected Ray 
     ndotc = np.dot(np.squeeze(np.vstack(normal)),np.squeeze((np.vstack(ray.dir))))
     v = -2* ndotc * np.vstack(normal) + np.vstack(ray.dir)
-    reflect_ray = Ray(np.vstack(p),np.vstack(v))
-    reflect_ray.set_depth(ray.depth + 1)
-    color += (ray_trace(reflect_ray) * interset_sphere.get("kr"))
+    if(interset_sphere.get("kr") != 0):
+        reflect_ray = Ray(np.vstack(p),np.vstack(v))
+        reflect_ray.set_depth(ray.depth + 1)
+        color += (ray_trace(reflect_ray) * interset_sphere.get("kr"))
     # clamp color to 1
     color = np.clip(color,0,1)
     return color
